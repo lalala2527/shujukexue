@@ -1,0 +1,19 @@
+import matplotlib.pyplot as plt
+from pylab import *
+mpl.rcParams['font.sans-serif'] = ['SimHei']  # 添加这条可以让图形显示中文
+
+
+x_axis_data = [1,2,3,4]
+y_axis_data1 = [34,56,65,43]
+y_axis_data2 = [66,44,35,57]
+
+plt.plot(x_axis_data, y_axis_data1, 'ro-', color='#FFA500', alpha=1, label='积极率')
+plt.plot(x_axis_data, y_axis_data2, 'ro-', color='#4169E1', alpha=1, label='消极率')
+
+
+# 显示标签
+plt.legend(loc="upper right")
+plt.xlabel('阶段')
+plt.ylabel('百分比')
+
+plt.show()

@@ -1,0 +1,121 @@
+#利用pandas的csv读取功能
+
+import pandas as pd
+df = pd.read_csv('data.csv', encoding='gb18030')
+df.head()
+df.shape
+
+#打开未标记数据集
+df2 = pd.read_csv('data2.csv', encoding='gb18030')
+df2.head()
+df2.shape
+
+#把数据和标签分开
+X=df[['comment']]
+y=df.sentiment
+Z=df2[['comment']]
+X.shape
+y.shape
+X.head()
+
+#分词
+import jieba
+def chinese_word_cut(mytext):
+    return " ".join(jieba.cut(mytext))
+X['cutted_comment'] = X.comment.apply(chinese_word_cut)
+print(X.cutted_comment)
+Z['cutted_comment'] = Z.comment.apply(chinese_word_cut)
+print(Z.cutted_comment)
+
+#把数据集分成训练集和测试集
+#训练集：测试集为3：1
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+X_train.shape
+y_train.shape
+X_test.shape
+y_test.shape
+
+#停用词
+
+stop_words_file = "stopwordsHIT.txt"
+stopwords = get_custom_stopwords(stop_words_file)
+print(stopwords)
+
+#向量化（前面没用停用词，后面使用停用词）
+
+from sklearn.feature_extraction.text import CountVectorizer
+vect = CountVectorizer()
+term_matrix = pd.DataFrame(vect.fit_transform(X_train.cutted_comment).toarray(), columns=vect.get_feature_names())
+print(term_matrix)
+term_matrix.shape
+vect = CountVectorizer(stop_words=frozenset(stopwords))
+term_matrix = pd.DataFrame(vect.fit_transform(X_train.cutted_comment).toarray(), columns=vect.get_feature_names())
+print(term_matrix)
+max_df = 0.8 # 在超过这一比例的文档中出现的关键词（过于平凡），去除掉。
+min_df = 3 # 在低于这一数量的文档中出现的关键词（过于独特），去除掉。
+vect = CountVectorizer(max_df = max_df, 
+                       min_df = min_df, 
+                       token_pattern=u'(?u)\\b[^\\d\\W]\\w+\\b', 
+                       stop_words=frozenset(stopwords))
+term_matrix = pd.DataFrame(vect.fit_transform(X_train.cutted_comment).toarray(), columns=vect.get_feature_names())
+print(term_matrix)
+
+#训练朴素贝叶斯分类模型
+#使用pipeline,整合多个函数
+
+from sklearn.naive_bayes import MultinomialNB
+nb = MultinomialNB()
+from sklearn.pipeline import make_pipeline
+pipe = make_pipeline(vect, nb)
+pipe.steps
+
+#计算训练集模型准确度
+
+from sklearn.model_selection import cross_val_score
+cross_val_score(pipe, X_train.cutted_comment, y_train, cv=5, scoring='accuracy').mean()
+
+#用训练集拟合模型，再让模型对测试集情感类型进行预测，与手工打的标签进行对比，计算准确度
+
+pipe.fit(X_train.cutted_comment, y_train)
+pipe.predict(X_test.cutted_comment)
+y_pred = pipe.predict(X_test.cutted_comment)
+from sklearn import metrics
+metrics.accuracy_score(y_test, y_pred)
+
+#混淆矩阵
+
+metrics.confusion_matrix(y_test, y_pred)
+
+#拿我们的训练的模型和SnowNLP作比较
+
+from snownlp import SnowNLP
+def get_sentiment(text):
+    return SnowNLP(text).sentiments
+y_pred_snownlp = X_test.comment.apply(get_sentiment)
+y_pred_snownlp_normalized = y_pred_snownlp.apply(lambda x: 1 if x>0.5 else 0)
+y_pred_snownlp_normalized[:5]
+metrics.accuracy_score(y_test, y_pred_snownlp_normalized)
+metrics.confusion_matrix(y_test, y_pred_snownlp_normalized)
+
+#待标记组数据打标签
+z_pred=pipe.predict(Z.cutted_comment)
+print(z_pred)
+
+#计算总体数据中的积极消极概率
+m=0
+n=0
+for i in z_pred:
+    n=n+1
+    if(i==1):
+        m=m+1
+p=m/n
+q=1-p
+print(p,q)  
+
+
+
+
+
+
